@@ -356,6 +356,18 @@ function parseCSV(text){
   return rows.filter(r => r.length > 1 || r[0] !== '');
 }
 
+// Generic (not name-specific) junk-data filter: flags a startup name only
+// when every letter in it is identical (e.g. "aaaa", "wwww"). Deliberately
+// conservative — a looser "low character diversity" rule would also flag
+// real short names like "TATA" (t-a-t-a, only 2 unique letters), so this
+// only catches the single-repeated-character pattern typical of test/filler
+// input, not real (if unusual) company names.
+function looksLikeTestData(name){
+  const cleaned = (name || '').toLowerCase().replace(/[^a-z]/g, '');
+  if (cleaned.length < 2) return true;
+  return new Set(cleaned).size === 1;
+}
+
 function rowsToResponses(rows){
   if (!rows.length) return [];
   const header = rows[0];
@@ -379,6 +391,7 @@ function rowsToResponses(rows){
   };
   return rows.slice(1)
     .filter(r => r[col.name] && r[col.name].trim())
+    .filter(r => !looksLikeTestData(r[col.name]))
     .map(r => ({
       timestamp: r[col.timestamp] || '',
       name: (r[col.name] || '').trim(),
@@ -648,7 +661,7 @@ function updateDataNote(){
     el.textContent = `Could not load live responses (${loadError.message}). Make sure the Form Responses sheet is shared as "Anyone with the link — Viewer," then reload this page.`;
   } else {
     el.className = 'data-note reveal vis';
-    el.textContent = `Live from the Form Responses sheet — ${RESPONSES.length} response${RESPONSES.length===1?'':'s'} loaded just now. This portal recomputes every KPI, chart, and insight from the raw rows; nothing is manually typed in. Delete a row directly in the Sheet (e.g. a test submission) to remove it here too.`;
+    el.textContent = `Live from the Form Responses sheet — ${RESPONSES.length} response${RESPONSES.length===1?'':'s'} loaded just now. This portal recomputes every KPI, chart, and insight from the raw rows; nothing is manually typed in. Rows with an all-repeated-character startup name (e.g. "aaaa") are auto-excluded as junk/test data — anything else, delete directly in the Sheet to remove it here too.`;
   }
 }
 function renderAll(){
