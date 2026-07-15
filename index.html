@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Sales & Marketing Workshop-2026. — Response Dashboard · KLE-CTIE</title>
+<title>Sales & Marketing Workshop — Response Dashboard · KLE-CTIE</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -126,6 +126,7 @@ td{padding:8px 12px;vertical-align:middle;}
 .insight-text{font-size:13px;color:var(--muted);line-height:1.65;}
 .insight-card.dark .insight-text{color:rgba(255,255,255,0.5);}
 .data-note{background:var(--gold-pale);border:1px solid rgba(201,168,76,0.4);border-radius:10px;padding:0.9rem 1.1rem;font-size:12px;color:#7d5a00;margin-bottom:1.5rem;}
+.data-note.error{background:#fce8e8;border-color:rgba(192,57,43,0.4);color:var(--red);}
 
 /* RESPONSE DETAIL */
 .detail-card{background:var(--white);border-radius:14px;padding:1.5rem;border:1px solid var(--border);box-shadow:var(--shadow);margin-bottom:1rem;}
@@ -164,7 +165,7 @@ td{padding:8px 12px;vertical-align:middle;}
   <div class="header-inner">
     <div class="header-left">
       <div class="eyebrow">KLE-CTIE · Startup Incubation · Workshop Needs Assessment</div>
-      <div class="header-title">Sales &amp; Marketing <span>Workshop-2026.</span><br>Response Dashboard</div>
+      <div class="header-title">Sales &amp; Marketing <span>Workshop</span><br>Response Dashboard</div>
       <div class="header-sub" id="headerSub">— responses</div>
       <div class="gold-bar"></div>
     </div>
@@ -189,7 +190,7 @@ td{padding:8px 12px;vertical-align:middle;}
 
   <!-- TAB 1: OVERVIEW -->
   <div class="tab-content active" id="tab-overview">
-    <div class="data-note reveal">Pulled directly from the live Google Form response sheet. 1 test submission ("aaaa") is excluded from all KPIs and charts below. This portal recomputes everything from the raw rows — nothing here is manually typed in.</div>
+    <div class="data-note reveal" id="dataNote">Loading live responses from the Google Form response sheet…</div>
     <div class="kpi-grid reveal" id="kpiGrid"></div>
 
     <section class="reveal">
@@ -321,43 +322,89 @@ td{padding:8px 12px;vertical-align:middle;}
 </div><!-- /container -->
 
 <script>
-// ── DATA (pulled from the live Form Responses sheet, test row excluded) ──
-const RESPONSES = [
-  {
-    timestamp: "13/07/2026 16:54:11",
-    name: "Vayodaanta Biotech Pvt Ltd",
-    industry: "Biotech",
-    stage: "Growth Stage",
-    topics: "Identifying Target Customers & Market Segmentation, Value Proposition & Positioning, B2B Sales Techniques, Email Marketing & Automation, Branding & Brand Building, CRM Tools & Sales Pipeline Management",
-    priority1: "Offshore marketing", priority2: "Premium customer connect", priority3: "Corporate level marketing",
-    challenge: "Export oriented compliances & grants",
-    duration: "One Full Day", dates: "12-08-2026", timeslot: "Full Day (9:30 AM – 5:00 PM)",
-    participants: "2", activities: "Case Studies, Live Demonstrations", suggestions: ""
-  },
-  {
-    timestamp: "14/07/2026 00:59:49",
-    name: "TechXcelerate Innovations Pvt. Ltd",
-    industry: "MedTech",
-    stage: "Prototype/MVP",
-    topics: "Building a Sales Strategy, Identifying Target Customers & Market Segmentation, Value Proposition & Positioning, Lead Generation & Prospecting, Digital Marketing Fundamentals, Sales Funnel Design & Optimization, Pricing Strategies, Marketing Analytics & KPIs, AI Tools for Sales & Marketing, Pitching to Customers",
-    priority1: "NA", priority2: "", priority3: "Building a Sales Strategy",
-    challenge: "",
-    duration: "Series of Short Sessions (2–3 hours each)", dates: "OK with any dates at present", timeslot: "9:30 AM – 12:30 PM",
-    participants: "1", activities: "Hands-on Exercises, One-to-One Mentoring", suggestions: ""
-  },
-  {
-    timestamp: "15/07/2026 13:47:40",
-    name: "KVB Green Energies",
-    industry: "Renewable Energy / Clean-Tech",
-    stage: "Scaling",
-    topics: "Value Proposition & Positioning, B2B Sales Techniques, Lead Generation & Prospecting, Digital Marketing Fundamentals, Social Media Marketing, Content Marketing, Search Engine Optimization (SEO), Paid Advertising (Google/Meta Ads), Email Marketing & Automation, Branding & Brand Building, Customer Acquisition Strategies, Sales Funnel Design & Optimization, CRM Tools & Sales Pipeline Management, Pricing Strategies, Marketing Analytics & KPIs, AI Tools for Sales & Marketing, Pitching to Customers, Export Marketing & International Sales",
-    priority1: "Digital Marketing Fundamentals", priority2: "CRM Tools & Sales Pipeline Management", priority3: "AI Tools for Sales & Marketing",
-    challenge: "KVB Green Energies operates in the renewable energy and climate technology sector, where sales cycles are typically long and involve multiple stakeholders. Key challenges include building awareness for Concentrated Solar Thermal (CST) technology versus conventional solar PV, reaching decision-makers across government, industrial and institutional buyers, managing long government procurement cycles, scaling marketing with limited resources, generating a consistent qualified B2B pipeline, and demonstrating ROI/carbon-savings which requires site visits and pilot demos.",
-    duration: "One Full Day", dates: "12 Aug", timeslot: "Full Day (9:30 AM – 5:00 PM)",
-    participants: "3–5", activities: "Case Studies, Hands-on Exercises, Live Demonstrations, Group Discussions, One-to-One Mentoring",
-    suggestions: "Requested mentorship beyond Sales & Marketing: Go-to-Market strategy for B2B/govt buyers, brand positioning as a CST leader, fundraising & investor readiness, strategic partnerships with EPCs/OEMs, international market expansion (export/certifications for Asia, Africa, Middle East), and navigating clean-energy policy/carbon markets."
+// ── LIVE DATA: fetched from the Form Responses Google Sheet, nothing hardcoded ──
+// Requires the Sheet to be shared "Anyone with the link — Viewer", since this
+// is a plain client-side fetch with no login. If it's still domain-restricted,
+// the fetch below will fail and the Overview tab will show a setup notice.
+const RESPONSES_SHEET_ID = "195FO8LqekGzIWbiGawneYCnnmo2lUFASlvP2LSQTNo8";
+const RESPONSES_CSV_URL = `https://docs.google.com/spreadsheets/d/${RESPONSES_SHEET_ID}/export?format=csv`;
+
+let RESPONSES = [];
+let loadError = null;
+
+// Minimal RFC4180 CSV parser — handles quoted fields with embedded commas,
+// newlines, and doubled "" quote-escaping (needed for the long free-text
+// challenge/suggestion answers in this form).
+function parseCSV(text){
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++){
+    const c = text[i], next = text[i+1];
+    if (inQuotes){
+      if (c === '"' && next === '"'){ field += '"'; i++; }
+      else if (c === '"'){ inQuotes = false; }
+      else { field += c; }
+    } else {
+      if (c === '"'){ inQuotes = true; }
+      else if (c === ','){ row.push(field); field = ''; }
+      else if (c === '\r'){ /* skip */ }
+      else if (c === '\n'){ row.push(field); rows.push(row); row = []; field = ''; }
+      else { field += c; }
+    }
   }
-];
+  if (field.length || row.length){ row.push(field); rows.push(row); }
+  return rows.filter(r => r.length > 1 || r[0] !== '');
+}
+
+function rowsToResponses(rows){
+  if (!rows.length) return [];
+  const header = rows[0];
+  const idx = name => header.indexOf(name);
+  const col = {
+    timestamp: idx("Timestamp"),
+    name: idx("Startup Name"),
+    industry: idx("Industry / Sector"),
+    stage: idx("Current Stage of Startup"),
+    topics: idx("Select relevant topics"),
+    priority1: idx("Priority 1"),
+    priority2: idx("Priority 2"),
+    priority3: idx("Priority 3"),
+    challenge: idx("What specific challenges are you currently facing in Sales & Marketing?"),
+    duration: idx("Preferred Workshop Duration"),
+    dates: idx("Preferred date(s)"),
+    timeslot: idx("Preferred Time Slot"),
+    participants: idx("Number of Participants"),
+    activities: idx("Would you like practical activities during the workshop?"),
+    suggestions: idx("Any additional topics or suggestions?"),
+  };
+  return rows.slice(1)
+    .filter(r => r[col.name] && r[col.name].trim())
+    .map(r => ({
+      timestamp: r[col.timestamp] || '',
+      name: (r[col.name] || '').trim(),
+      industry: (r[col.industry] || '').trim(),
+      stage: (r[col.stage] || '').trim(),
+      topics: r[col.topics] || '',
+      priority1: r[col.priority1] || '', priority2: r[col.priority2] || '', priority3: r[col.priority3] || '',
+      challenge: r[col.challenge] || '',
+      duration: r[col.duration] || '', dates: r[col.dates] || '', timeslot: r[col.timeslot] || '',
+      participants: r[col.participants] || '', activities: r[col.activities] || '', suggestions: r[col.suggestions] || ''
+    }));
+}
+
+async function loadResponses(){
+  try {
+    const res = await fetch(RESPONSES_CSV_URL);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+    RESPONSES = rowsToResponses(parseCSV(text));
+    loadError = null;
+  } catch (err) {
+    loadError = err;
+    RESPONSES = [];
+  }
+  renderAll();
+}
 
 // ── DATA (pulled live from the Startup Outreach Tracker Sheet) ──
 const ROSTER = [
@@ -402,6 +449,9 @@ function splitList(s){ return (s||"").split(",").map(x=>x.trim()).filter(Boolean
 // ── COMPUTED KPIs (nothing hardcoded — all derived from RESPONSES) ──
 function computeKPIs(){
   const n = RESPONSES.length;
+  if (n === 0) {
+    return [{label:"Total Responses", value:0, sub: loadError ? "load failed — see notice above" : "loading…", color:"var(--muted)"}];
+  }
   const industries = new Set(RESPONSES.map(r=>r.industry));
   const stages = new Set(RESPONSES.map(r=>r.stage));
   const topicCounts = RESPONSES.map(r=>splitList(r.topics).length);
@@ -414,7 +464,7 @@ function computeKPIs(){
   const topTopic = Object.entries(freq).sort((a,b)=>b[1]-a[1])[0];
 
   return [
-    {label:"Total Responses", value:n, sub:"1 test excluded", color:"var(--navy)"},
+    {label:"Total Responses", value:n, sub:"live from Sheet", color:"var(--navy)"},
     {label:"Industries", value:industries.size, sub:"distinct sectors", color:"var(--blue)"},
     {label:"Stages Represented", value:stages.size, sub:"of 5 possible", color:"var(--purple)"},
     {label:"Avg Topics Picked", value:avgTopics, sub:"per response", color:"var(--amber)"},
@@ -535,21 +585,29 @@ function renderRoster(){
   renderRosterKPIs();
 }
 
-// ── INSIGHTS (derived from the actual data patterns) ──
+// ── INSIGHTS (fully computed from whatever RESPONSES currently holds) ──
 function renderInsights(){
-  const topics = freqFromField('topics', true);
-  const top = topics[0];
-  const priorities = freqFromField('priority1', false).concat(freqFromField('priority2', false), freqFromField('priority3', false));
-  const fullDayPct = Math.round(RESPONSES.filter(r=>r.duration==="One Full Day").length / RESPONSES.length * 100);
-  const stagesSpread = new Set(RESPONSES.map(r=>r.stage)).size;
+  const n = RESPONSES.length;
+  if (n === 0){
+    document.getElementById('insightsGrid').innerHTML =
+      `<div class="insight-card"><div class="insight-icon">${loadError ? '⚠️' : '⏳'}</div><div class="insight-title">${loadError ? 'Could Not Load Live Data' : 'Loading…'}</div><div class="insight-text">${loadError ? 'Check that the Form Responses sheet is shared as "Anyone with the link — Viewer."' : 'Fetching the latest responses from the Google Sheet.'}</div></div>`;
+    return;
+  }
+  const top = freqFromField('topics', true)[0];
+  const fullDay = RESPONSES.filter(r=>r.duration==="One Full Day").length;
+  const fullDayPct = Math.round(fullDay / n * 100);
+  const stagesList = Array.from(new Set(RESPONSES.map(r=>r.stage))).filter(Boolean);
+  const exportMentions = RESPONSES.filter(r => /export|international/i.test(r.topics + ' ' + r.challenge + ' ' + r.suggestions)).length;
+  const withActivities = RESPONSES.filter(r=>splitList(r.activities).length>0).length;
+  const topActivity = freqFromField('activities', true)[0];
 
   const cards = [
-    {icon:"🎯", title:`"${top[0]}" Is The Clear Priority`, text:`Selected by ${top[1]} of ${RESPONSES.length} respondents — every response so far includes it. This should anchor the workshop agenda.`, dark:true},
-    {icon:"🕐", title:`${fullDayPct}% Want a Full Day`, text:`Most responses lean toward a full-day format over short sessions, though one early-stage startup asked for a series of shorter 2–3 hour sessions instead — worth offering both formats if numbers grow.`},
-    {icon:"🌍", title:"Export & Compliance Comes Up Twice", text:"Both growth/scaling-stage respondents (Vayodaanta Biotech, KVB Green Energies) flagged export-oriented compliance, grants, and international market entry — a strong signal to add a dedicated session for later-stage startups.", dark:false},
-    {icon:"📊", title:`${stagesSpread} Different Stages, One Room`, text:`Responses span Prototype/MVP through Scaling. Early-stage asks (sales strategy basics) and later-stage asks (GTM, fundraising, export) are quite different — consider stage-tracked breakout sessions.`, dark:true},
-    {icon:"🤝", title:"Hands-On Formats Are Popular", text:"Every respondent requested at least one practical activity — Case Studies and Live Demonstrations appear most often, alongside one-to-one mentoring asks.", dark:false},
-    {icon:"⚠️", title:"Sample Is Still Small", text:`Only ${RESPONSES.length} genuine responses so far. Treat these insights as directional, not conclusive — revisit once outreach (tracked separately in the Startup Outreach Tracker) drives more submissions in.`, dark:false},
+    {icon:"🎯", title:`"${top[0]}" Is The Top Requested Topic`, text:`Selected by ${top[1]} of ${n} respondents (${Math.round(top[1]/n*100)}%) — a strong candidate to anchor the workshop agenda.`, dark:true},
+    {icon:"🕐", title:`${fullDayPct}% Want a Full Day`, text:`${fullDay} of ${n} responses prefer a full-day format over shorter sessions. Worth offering both formats if this split narrows as more responses come in.`},
+    {icon:"🌍", title:`${exportMentions} Response${exportMentions===1?'':'s'} Flag Export/International`, text: exportMentions ? `${exportMentions} of ${n} responses mention export, compliance, or international market topics — a signal to consider a dedicated session for later-stage startups.` : `No responses currently mention export or international market topics.`},
+    {icon:"📊", title:`${stagesList.length} Stage${stagesList.length===1?'':'s'} Represented`, text: stagesList.length ? `Responses span ${stagesList.join(', ')}. Consider stage-tracked breakout sessions if this spread stays wide.` : 'No stage data yet.', dark:true},
+    {icon:"🤝", title:`${withActivities} of ${n} Want Hands-On Formats`, text: topActivity ? `"${topActivity[0]}" is the most requested activity (${topActivity[1]} mention${topActivity[1]===1?'':'s'}).` : 'No activity preferences recorded yet.'},
+    {icon:"⚠️", title: n < 10 ? "Sample Is Still Small" : "Sample Size Is Healthy", text: n < 10 ? `Only ${n} genuine response${n===1?'':'s'} so far — treat these insights as directional, not conclusive, until more responses land.` : `${n} responses collected — enough to treat these patterns as reasonably reliable.`},
   ];
   document.getElementById('insightsGrid').innerHTML = cards.map(c=>
     `<div class="insight-card${c.dark?' dark':''}"><div class="insight-icon">${c.icon}</div><div class="insight-title">${c.title}</div><div class="insight-text">${c.text}</div></div>`
@@ -557,7 +615,18 @@ function renderInsights(){
 }
 
 // ── RENDER ALL ──
+function updateDataNote(){
+  const el = document.getElementById('dataNote');
+  if (loadError){
+    el.className = 'data-note error reveal vis';
+    el.textContent = `Could not load live responses (${loadError.message}). Make sure the Form Responses sheet is shared as "Anyone with the link — Viewer," then reload this page.`;
+  } else {
+    el.className = 'data-note reveal vis';
+    el.textContent = `Live from the Form Responses sheet — ${RESPONSES.length} response${RESPONSES.length===1?'':'s'} loaded just now. This portal recomputes every KPI, chart, and insight from the raw rows; nothing is manually typed in. Delete a row directly in the Sheet (e.g. a test submission) to remove it here too.`;
+  }
+}
 function renderAll(){
+  updateDataNote();
   renderKPIs();
   renderBarChart('stageChart', freqFromField('stage', false));
   renderBarChart('industryChart', freqFromField('industry', false));
@@ -579,7 +648,7 @@ function renderAll(){
   renderInsights();
   setTimeout(animateBars, 150);
 }
-renderAll();
+loadResponses();
 
 // ── TABS ──
 function switchTab(id){
