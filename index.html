@@ -541,20 +541,46 @@ function showDetail(idx){
     </div>`;
 }
 
-// ── STARTUP ROSTER (from the live Outreach Tracker) ──
+// ── STARTUP ROSTER ──
+// Base contact/status list is still a static snapshot (the Outreach Tracker
+// isn't a fetchable native Sheet — see note below), BUT "Responded" status
+// and Industry/Stage are cross-matched live against RESPONSES so they never
+// go stale as new submissions land, even though the base list is static.
 function statusPill(s){
   const m = {'Not Sent':'s-notsent','Invited':'s-invited','Reminder Sent':'s-reminder','Responded':'s-responded','Declined':'s-declined'};
   return `<span class="status-pill ${m[s]||'s-notsent'}">${s}</span>`;
 }
+function normalizeName(s){ return (s||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
+function namesMatch(a, b){
+  const na = normalizeName(a), nb = normalizeName(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  let i = 0;
+  while (i < na.length && i < nb.length && na[i] === nb[i]) i++;
+  return i / Math.min(na.length, nb.length) >= 0.7;
+}
+function findLiveResponse(rosterName){
+  return RESPONSES.find(r => namesMatch(r.name, rosterName));
+}
+function liveRosterRow(r){
+  const match = findLiveResponse(r.name);
+  return {
+    ...r,
+    status: match ? "Responded" : r.status,
+    industry: match ? match.industry : r.industry,
+    stage: match ? match.stage : r.stage,
+  };
+}
 function renderRosterKPIs(){
-  const n = ROSTER.length;
-  const invited = ROSTER.filter(r=>r.status!=="Not Sent").length;
-  const responded = ROSTER.filter(r=>r.status==="Responded").length;
+  const rows = ROSTER.map(liveRosterRow);
+  const n = rows.length;
+  const invited = rows.filter(r=>r.status!=="Not Sent").length;
+  const responded = rows.filter(r=>r.status==="Responded").length;
   const pct = invited ? Math.round(responded/invited*100) : 0;
   const kpis = [
     {label:"Total Startups", value:n, sub:"in outreach list", color:"var(--navy)"},
     {label:"Invited", value:invited, sub:`${Math.round(invited/n*100)}% of roster`, color:"var(--blue)"},
-    {label:"Responded", value:responded, sub:"submitted the form", color:"var(--green)"},
+    {label:"Responded", value:responded, sub:"live-matched to Sheet", color:"var(--green)"},
     {label:"Response Rate", value:pct+"%", sub:"of those invited", color:"var(--gold)"},
   ];
   document.getElementById('rosterKpiGrid').innerHTML = kpis.map(k=>
@@ -564,7 +590,7 @@ function renderRosterKPIs(){
 function renderRoster(){
   const q = document.getElementById('rosterSearch').value.toLowerCase();
   const sf = document.getElementById('rosterStatusFilter').value;
-  const filtered = ROSTER.filter(r=>{
+  const filtered = ROSTER.map(liveRosterRow).filter(r=>{
     const matchQ = !q || r.name.toLowerCase().includes(q) || r.founder.toLowerCase().includes(q) || r.email.toLowerCase().includes(q);
     const matchS = !sf || r.status === sf;
     return matchQ && matchS;
