@@ -322,39 +322,14 @@ td{padding:8px 12px;vertical-align:middle;}
 </div><!-- /container -->
 
 <script>
-// ── LIVE DATA: fetched from the Form Responses Google Sheet, nothing hardcoded ──
-// Requires the Sheet to be shared "Anyone with the link — Viewer", since this
-// is a plain client-side fetch with no login. If it's still domain-restricted,
-// the fetch below will fail and the Overview tab will show a setup notice.
-const RESPONSES_SHEET_ID = "195FO8LqekGzIWbiGawneYCnnmo2lUFASlvP2LSQTNo8";
-const RESPONSES_CSV_URL = `https://docs.google.com/spreadsheets/d/${RESPONSES_SHEET_ID}/export?format=csv`;
+// ── LIVE DATA: fetched from a private Google Apps Script Web App, nothing
+// hardcoded. The Form Responses Sheet stays fully private — the Web App
+// (responses_api.gs) runs under the owner's own authorization and only ever
+// returns the plain values grid below. See responses_api.gs for setup.
+const RESPONSES_API_URL = "https://script.google.com/macros/s/AKfycbwn44euzCiVu4QRZOrO4Wm3ukAJ_RrRqKxcfASrwd8DiFScRzb6NQGm_vy55AJBL6lQ/exec";
 
 let RESPONSES = [];
 let loadError = null;
-
-// Minimal RFC4180 CSV parser — handles quoted fields with embedded commas,
-// newlines, and doubled "" quote-escaping (needed for the long free-text
-// challenge/suggestion answers in this form).
-function parseCSV(text){
-  const rows = [];
-  let row = [], field = '', inQuotes = false;
-  for (let i = 0; i < text.length; i++){
-    const c = text[i], next = text[i+1];
-    if (inQuotes){
-      if (c === '"' && next === '"'){ field += '"'; i++; }
-      else if (c === '"'){ inQuotes = false; }
-      else { field += c; }
-    } else {
-      if (c === '"'){ inQuotes = true; }
-      else if (c === ','){ row.push(field); field = ''; }
-      else if (c === '\r'){ /* skip */ }
-      else if (c === '\n'){ row.push(field); rows.push(row); row = []; field = ''; }
-      else { field += c; }
-    }
-  }
-  if (field.length || row.length){ row.push(field); rows.push(row); }
-  return rows.filter(r => r.length > 1 || r[0] !== '');
-}
 
 // Generic (not name-specific) junk-data filter: flags a startup name only
 // when every letter in it is identical (e.g. "aaaa", "wwww"). Deliberately
@@ -407,10 +382,13 @@ function rowsToResponses(rows){
 
 async function loadResponses(){
   try {
-    const res = await fetch(RESPONSES_CSV_URL);
+    if (RESPONSES_API_URL.indexOf('PASTE_WEB_APP_URL') === 0) {
+      throw new Error('Responses API not configured yet — deploy responses_api.gs and paste its URL into RESPONSES_API_URL.');
+    }
+    const res = await fetch(RESPONSES_API_URL);
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    const text = await res.text();
-    RESPONSES = rowsToResponses(parseCSV(text));
+    const values = await res.json();
+    RESPONSES = rowsToResponses(values);
     loadError = null;
   } catch (err) {
     loadError = err;
@@ -629,7 +607,7 @@ function renderInsights(){
   const n = RESPONSES.length;
   if (n === 0){
     document.getElementById('insightsGrid').innerHTML =
-      `<div class="insight-card"><div class="insight-icon">${loadError ? '⚠️' : '⏳'}</div><div class="insight-title">${loadError ? 'Could Not Load Live Data' : 'Loading…'}</div><div class="insight-text">${loadError ? 'Check that the Form Responses sheet is shared as "Anyone with the link — Viewer."' : 'Fetching the latest responses from the Google Sheet.'}</div></div>`;
+      `<div class="insight-card"><div class="insight-icon">${loadError ? '⚠️' : '⏳'}</div><div class="insight-title">${loadError ? 'Could Not Load Live Data' : 'Loading…'}</div><div class="insight-text">${loadError ? 'Deploy responses_api.gs as a Web App and paste its URL into RESPONSES_API_URL in this file (see the comment at the top of the script).' : 'Fetching the latest responses.'}</div></div>`;
     return;
   }
   const top = freqFromField('topics', true)[0];
@@ -658,7 +636,7 @@ function updateDataNote(){
   const el = document.getElementById('dataNote');
   if (loadError){
     el.className = 'data-note error reveal vis';
-    el.textContent = `Could not load live responses (${loadError.message}). Make sure the Form Responses sheet is shared as "Anyone with the link — Viewer," then reload this page.`;
+    el.textContent = `Could not load live responses (${loadError.message}). Deploy responses_api.gs and paste its Web App URL into RESPONSES_API_URL, then reload this page.`;
   } else {
     el.className = 'data-note reveal vis';
     el.textContent = `Live from the Form Responses sheet — ${RESPONSES.length} response${RESPONSES.length===1?'':'s'} loaded just now. This portal recomputes every KPI, chart, and insight from the raw rows; nothing is manually typed in. Rows with an all-repeated-character startup name (e.g. "aaaa") are auto-excluded as junk/test data — anything else, delete directly in the Sheet to remove it here too.`;
